@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/lukegb/fourtosix"
@@ -91,17 +92,18 @@ func (l *Listener) handleTLS(conn net.Conn) {
 	conn.SetDeadline(zero)
 
 	log.Printf("[%s] gluing connections together", conn.RemoteAddr())
-	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
 		io.Copy(conn, rconn)
-		close(done)
+		wg.Done()
 	}()
 	go func() {
 		io.Copy(rconn, conn)
-		close(done)
+		wg.Done()
 	}()
 
-	<-done
+	wg.Wait()
 	log.Printf("[%s] closing connection", conn.RemoteAddr())
 }
 
