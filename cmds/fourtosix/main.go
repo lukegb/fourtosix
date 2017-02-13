@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"net"
+	"strings"
 
 	"github.com/lukegb/fourtosix"
 	"github.com/lukegb/fourtosix/tls"
@@ -21,18 +22,26 @@ func main() {
 
 	var makeDialer func(net.Conn, fourtosix.Context) fourtosix.Dialer
 	if *fourToSixSubnet != "" {
-		log.Printf("Using subnet %q for outbound IPv6 connections", *fourToSixSubnet)
+		log.Printf("using subnet %q for outbound IPv6 connections", *fourToSixSubnet)
 		var err error
 		if makeDialer, err = fourtosix.DialUnderSubnet(*fourToSixSubnet); err != nil {
 			log.Fatalf("create dialer factory: %v", err)
 		}
 	} else {
-		log.Println("[WARNING] Using default host IPv6 address for outbound IPv6!")
+		log.Println("[WARNING] using default host IPv6 address for outbound IPv6!")
 	}
 
 	if *tlsListenPort != "" {
+		var permittedSuffixes []string
+		if *tlsPermitSuffix != "" {
+			permittedSuffixes = strings.Split(*tlsPermitSuffix, ",")
+			log.Printf("[TLS] permitting connections to hostnames ending with %s", permittedSuffixes)
+		} else {
+			log.Printf("[TLS] permitting connections to all hostnames")
+		}
 		l := &tls.Listener{
-			MakeDialer: makeDialer,
+			MakeDialer:          makeDialer,
+			AllowedHostSuffixes: permittedSuffixes,
 		}
 		log.Printf("[TLS] listening on %q", *tlsListenPort)
 		go log.Fatal(l.Listen("tcp", *tlsListenPort))

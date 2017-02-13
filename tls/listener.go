@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/lukegb/fourtosix"
@@ -13,8 +14,7 @@ import (
 type Listener struct {
 	RemotePort int
 
-	AllowedHosts    []string
-	allowedHostsMap map[string]bool
+	AllowedHostSuffixes []string
 
 	HostnameIsAllowed func(string) bool
 
@@ -97,7 +97,21 @@ func (l *Listener) handleTLS(conn net.Conn) {
 }
 
 func (l *Listener) checkHostname(hostname string) bool {
-	return !l.allowedHostsMap[hostname]
+	// TODO(lukegb): maybe use a trie of reversed hostname prefixes
+	for _, s := range l.AllowedHostSuffixes {
+		if strings.HasSuffix(hostname, s) {
+			return true
+		}
+	}
+	return false
+}
+
+func reverseString(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
 }
 
 func (l *Listener) Listen(network, addr string) error {
@@ -106,15 +120,8 @@ func (l *Listener) Listen(network, addr string) error {
 		return fmt.Errorf("failed to listen: %v", err)
 	}
 
-	if l.HostnameIsAllowed == nil && l.AllowedHosts != nil {
+	if l.HostnameIsAllowed == nil && l.AllowedHostSuffixes != nil {
 		l.HostnameIsAllowed = l.checkHostname
-	}
-	if l.AllowedHosts != nil {
-		allowedHostsMap := make(map[string]bool)
-		for _, h := range l.AllowedHosts {
-			allowedHostsMap[h] = true
-		}
-		l.allowedHostsMap = allowedHostsMap
 	}
 
 	for {
