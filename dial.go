@@ -1,4 +1,4 @@
-package tls
+package fourtosix
 
 import (
 	"fmt"
@@ -9,7 +9,9 @@ type Dialer interface {
 	Dial(network, address string) (net.Conn, error)
 }
 
-func DialUnderSubnet(subnet string) (func(net.Conn, ClientHello) Dialer, error) {
+type Context interface{}
+
+func DialUnderSubnet(subnet string) (func(net.Conn, Context) Dialer, error) {
 	localNet, localMask, err := net.ParseCIDR(subnet)
 	if err != nil {
 		return nil, err
@@ -20,7 +22,7 @@ func DialUnderSubnet(subnet string) (func(net.Conn, ClientHello) Dialer, error) 
 		return nil, fmt.Errorf("subnet mask %s is faulty", localMask.String())
 	}
 
-	return func(conn net.Conn, hi ClientHello) Dialer {
+	return func(conn net.Conn, ctx Context) Dialer {
 		localIP := make(net.IP, len(localNet))
 		copy(localIP, localNet)
 		remoteIP := conn.RemoteAddr()

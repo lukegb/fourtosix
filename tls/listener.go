@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"time"
+	"github.com/lukegb/fourtosix"
 )
 
 type Listener struct {
@@ -16,7 +17,7 @@ type Listener struct {
 
 	HostnameIsAllowed func(string) bool
 
-	MakeDialer func(net.Conn, ClientHello) Dialer
+	MakeDialer func(net.Conn, fourtosix.Context) fourtosix.Dialer
 
 	ForceNetwork string
 }
@@ -58,7 +59,7 @@ func (l *Listener) handleTLS(conn net.Conn) {
 		return
 	}
 
-	var dialer Dialer
+	var dialer fourtosix.Dialer
 	if l.MakeDialer != nil {
 		dialer = l.MakeDialer(conn, *hi)
 	} else {
