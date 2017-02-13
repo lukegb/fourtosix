@@ -25,7 +25,7 @@ func (l *Listener) handleTLS(conn net.Conn) {
 	defer conn.Close()
 	conn.SetDeadline(time.Now().Add(5 * time.Second))
 	log.Printf("[%s] got connection", conn.RemoteAddr())
-	mr := &MemorizingReader{r: conn}
+	mr := &memorizingReader{r: conn}
 	hi, err := readClientHello(mr)
 	if err != nil {
 		log.Printf("[%s] readClientHello: %v", conn.RemoteAddr(), err)
