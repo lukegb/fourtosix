@@ -2,6 +2,7 @@ package tls
 
 import (
 	"fmt"
+	"context"
 	"io"
 	"log"
 	"net"
@@ -27,6 +28,10 @@ func (l *Listener) handleTLS(conn net.Conn) {
 	defer conn.Close()
 	conn.SetDeadline(time.Now().Add(5 * time.Second))
 	log.Printf("[%s] got connection", conn.RemoteAddr())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	mr := &memorizingReader{r: conn}
 	hi, err := readClientHello(mr)
 	if err != nil {
@@ -67,7 +72,7 @@ func (l *Listener) handleTLS(conn net.Conn) {
 		dialer = new(net.Dialer)
 	}
 
-	rconn, err := dialer.Dial(rnet, net.JoinHostPort(hi.ServerName, fmt.Sprintf("%d", rport)))
+	rconn, err := dialer.DialContext(ctx, rnet, net.JoinHostPort(hi.ServerName, fmt.Sprintf("%d", rport)))
 	if err != nil {
 		log.Printf("[%s] connect %s: %v", conn.RemoteAddr(), hi.ServerName, err)
 		sendTLSAlert(conn, alertUnrecognizedName)
@@ -86,13 +91,17 @@ func (l *Listener) handleTLS(conn net.Conn) {
 	conn.SetDeadline(zero)
 
 	log.Printf("[%s] gluing connections together", conn.RemoteAddr())
+	var done chan struct{}
 	go func() {
 		io.Copy(conn, rconn)
-		conn.Close()
-		rconn.Close()
+		close(done)
 	}()
-	io.Copy(rconn, conn)
+	go func() {
+		io.Copy(rconn, conn)
+		close(done)
+	}()
 
+	<-done
 	log.Printf("[%s] closing connection", conn.RemoteAddr())
 }
 
