@@ -91,7 +91,7 @@ func (l *Listener) handleTLS(conn net.Conn) {
 	conn.SetDeadline(zero)
 
 	log.Printf("[%s] gluing connections together", conn.RemoteAddr())
-	var done chan struct{}
+	done := make(chan struct{})
 	go func() {
 		io.Copy(conn, rconn)
 		close(done)
