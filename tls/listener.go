@@ -1,8 +1,8 @@
 package tls
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -69,7 +69,7 @@ func (l *Listener) handleTLS(conn net.Conn) {
 	if l.MakeDialer != nil {
 		dialer = l.MakeDialer(conn, *hi)
 	} else {
-		dialer = new(net.Dialer)
+		dialer = fourtosix.DefaultDialer
 	}
 
 	rconn, err := dialer.DialContext(ctx, rnet, net.JoinHostPort(hi.ServerName, fmt.Sprintf("%d", rport)))

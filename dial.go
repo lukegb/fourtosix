@@ -1,13 +1,21 @@
 package fourtosix
 
 import (
+	"context"
 	"fmt"
 	"net"
-	"context"
+	"time"
 )
 
 const (
 	subnetMaskFourInSix = 96
+	dialTimeout         = 3 * time.Second
+)
+
+var (
+	DefaultDialer Dialer = &net.Dialer{
+		Timeout: dialTimeout,
+	}
 )
 
 type Dialer interface {
@@ -34,6 +42,7 @@ func DialUnderSubnet(subnet string) (func(net.Conn, Context) Dialer, error) {
 		copy(localIP[13:], remoteIP.(*net.TCPAddr).IP.To4())
 
 		return &net.Dialer{
+			Timeout: dialTimeout,
 			LocalAddr: &net.TCPAddr{
 				IP:   localIP,
 				Port: 0,
