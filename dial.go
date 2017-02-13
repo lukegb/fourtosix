@@ -5,6 +5,10 @@ import (
 	"net"
 )
 
+const (
+	subnetMaskFourInSix = 96
+)
+
 type Dialer interface {
 	Dial(network, address string) (net.Conn, error)
 }
@@ -16,8 +20,8 @@ func DialUnderSubnet(subnet string) (func(net.Conn, Context) Dialer, error) {
 	if err != nil {
 		return nil, err
 	}
-	if ones, _ := localMask.Mask.Size(); ones > 96 {
-		return nil, fmt.Errorf("subnet mask %s is too small; must be at most 96 bits to fit IPv4 addresses", localMask.String())
+	if ones, _ := localMask.Mask.Size(); ones > subnetMaskFourInSix {
+		return nil, fmt.Errorf("subnet mask %s is too small; must be at most %d bits to fit IPv4 addresses", localMask.String(), subnetMaskFourInSix)
 	} else if ones == 0 {
 		return nil, fmt.Errorf("subnet mask %s is faulty", localMask.String())
 	}
