@@ -7,12 +7,16 @@ import (
 	"strings"
 
 	"github.com/lukegb/fourtosix"
+	"github.com/lukegb/fourtosix/http"
 	"github.com/lukegb/fourtosix/tls"
 )
 
 var (
-	tlsListenPort   = flag.String("tls-listen", ":443", "port to listen on for TLS connection; don't listen if empty")
+	tlsListenPort   = flag.String("tls-listen", ":443", "port to listen on for TLS connections; don't listen if empty")
 	tlsPermitSuffix = flag.String("tls-permit-suffix", "", "comma-separated list of suffixes we will permit proxying for")
+
+	httpListenPort   = flag.String("http-listen", ":80", "port to listen on for HTTP connections; don't listen if empty")
+	httpPermitSuffix = flag.String("http-permit-suffix", "", "comma-separated list of suffixes we will permit proxying for")
 
 	fourToSixSubnet = flag.String("v4-subnet", "", "CIDR of subnet to send requests from (e.g. 64:ff96::/96) - this is the IPv6 subnet that will appear in logs for proxied IPs. If left blank, will use default IPv6 address (not recommended!)")
 )
@@ -48,7 +52,27 @@ func main() {
 			log.Fatal(err)
 		}
 		log.Printf("[TLS] listening on %q", *tlsListenPort)
-		go log.Fatal(h.Serve(l))
+		go func() { log.Fatal(h.Serve(l)) }()
+	}
+
+	if *httpListenPort != "" {
+		var permittedSuffixes []string
+		if *httpPermitSuffix != "" {
+			permittedSuffixes = strings.Split(*httpPermitSuffix, ",")
+			log.Printf("[HTTP] permitting connections to hostnames ending with %s", permittedSuffixes)
+		} else {
+			log.Printf("[HTTP] permitting connections to all hostnames")
+		}
+		h := &http.Handler{
+			MakeDialer:          makeDialer,
+			AllowedHostSuffixes: permittedSuffixes,
+		}
+		l, err := net.Listen("tcp", *httpListenPort)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("[HTTP] listening on %q", *httpListenPort)
+		go func() { log.Fatal(h.Serve(l)) }()
 	}
 
 	var c chan struct{}

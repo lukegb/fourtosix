@@ -33,7 +33,7 @@ func (h *Handler) handle(conn net.Conn) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	mr := &memorizingReader{r: conn}
+	mr := &fourtosix.MemorizingReader{Reader: conn}
 	hi, err := readClientHello(mr)
 	if err != nil {
 		log.Printf("[%s] readClientHello: %v", conn.RemoteAddr(), err)
@@ -81,7 +81,7 @@ func (h *Handler) handle(conn net.Conn) {
 	}
 	defer rconn.Close()
 	log.Printf("[%s] connected to %s", conn.RemoteAddr(), hi.ServerName)
-	if _, err := rconn.Write(mr.buf); err != nil {
+	if _, err := rconn.Write(mr.Buffer()); err != nil {
 		log.Printf("[%s] write ClientHello to rconn %s: %v", conn.RemoteAddr(), hi.ServerName, err)
 		sendTLSAlert(conn, alertInternalError)
 		return
