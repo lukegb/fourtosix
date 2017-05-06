@@ -39,12 +39,16 @@ func main() {
 		} else {
 			log.Printf("[TLS] permitting connections to all hostnames")
 		}
-		l := &tls.Listener{
+		h := &tls.Handler{
 			MakeDialer:          makeDialer,
 			AllowedHostSuffixes: permittedSuffixes,
 		}
+		l, err := net.Listen("tcp", *tlsListenPort)
+		if err != nil {
+			log.Fatal(err)
+		}
 		log.Printf("[TLS] listening on %q", *tlsListenPort)
-		go log.Fatal(l.Listen("tcp", *tlsListenPort))
+		go log.Fatal(h.Serve(l))
 	}
 
 	var c chan struct{}

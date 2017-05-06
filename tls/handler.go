@@ -13,7 +13,7 @@ import (
 	"github.com/lukegb/fourtosix"
 )
 
-type Listener struct {
+type Handler struct {
 	RemotePort int
 
 	AllowedHostSuffixes []string
@@ -25,7 +25,7 @@ type Listener struct {
 	ForceNetwork string
 }
 
-func (l *Listener) handleTLS(conn net.Conn) {
+func (h *Handler) handle(conn net.Conn) {
 	defer conn.Close()
 	conn.SetDeadline(time.Now().Add(5 * time.Second))
 	log.Printf("[%s] got connection", conn.RemoteAddr())
@@ -50,25 +50,25 @@ func (l *Listener) handleTLS(conn net.Conn) {
 		return
 	}
 
-	rport := l.RemotePort
+	rport := h.RemotePort
 	if rport == 0 {
 		rport = 443
 	}
 
-	rnet := l.ForceNetwork
+	rnet := h.ForceNetwork
 	if rnet == "" {
 		rnet = "tcp"
 	}
 
-	if l.HostnameIsAllowed != nil && !l.HostnameIsAllowed(hi.ServerName) {
+	if h.HostnameIsAllowed != nil && !h.HostnameIsAllowed(hi.ServerName) {
 		log.Printf("[%s] connect %s blocked: hostname not allowed", conn.RemoteAddr(), hi.ServerName)
 		sendTLSAlert(conn, alertUnrecognizedName)
 		return
 	}
 
 	var dialer fourtosix.Dialer
-	if l.MakeDialer != nil {
-		dialer = l.MakeDialer(conn, *hi)
+	if h.MakeDialer != nil {
+		dialer = h.MakeDialer(conn, *hi)
 	} else {
 		dialer = fourtosix.DefaultDialer
 	}
@@ -107,9 +107,9 @@ func (l *Listener) handleTLS(conn net.Conn) {
 	log.Printf("[%s] closing connection", conn.RemoteAddr())
 }
 
-func (l *Listener) checkHostname(hostname string) bool {
+func (h *Handler) checkHostname(hostname string) bool {
 	// TODO(lukegb): maybe use a trie of reversed hostname prefixes
-	for _, s := range l.AllowedHostSuffixes {
+	for _, s := range h.AllowedHostSuffixes {
 		if strings.HasSuffix(hostname, s) {
 			return true
 		}
@@ -117,29 +117,16 @@ func (l *Listener) checkHostname(hostname string) bool {
 	return false
 }
 
-func reverseString(s string) string {
-	runes := []rune(s)
-	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
-		runes[i], runes[j] = runes[j], runes[i]
-	}
-	return string(runes)
-}
-
-func (l *Listener) Listen(network, addr string) error {
-	ln, err := net.Listen(network, addr)
-	if err != nil {
-		return fmt.Errorf("failed to listen: %v", err)
-	}
-
-	if l.HostnameIsAllowed == nil && l.AllowedHostSuffixes != nil {
-		l.HostnameIsAllowed = l.checkHostname
+func (h *Handler) Serve(l net.Listener) error {
+	if h.HostnameIsAllowed == nil && h.AllowedHostSuffixes != nil {
+		h.HostnameIsAllowed = h.checkHostname
 	}
 
 	for {
-		conn, err := ln.Accept()
+		conn, err := l.Accept()
 		if err != nil {
 			return fmt.Errorf("failed to accept: %v", err)
 		}
-		go l.handleTLS(conn)
+		go h.handle(conn)
 	}
 }
